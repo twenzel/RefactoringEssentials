@@ -1,5 +1,7 @@
 # Refactoring Essentials for Visual Studio
 
+[![Join the chat at https://gitter.im/twenzel/RefactoringEssentials](https://badges.gitter.im/twenzel/RefactoringEssentials.svg)](https://gitter.im/twenzel/RefactoringEssentials?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 [@vsrefactoring](https://twitter.com/vsrefactoring) | [vsrefactoringessentials.com](http://vsrefactoringessentials.com/)
 
 Refactoring Essentials started out as NR6Pack, and was part of the NRefactory 6 repository. In the course of  
