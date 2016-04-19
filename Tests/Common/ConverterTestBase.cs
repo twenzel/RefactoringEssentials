@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis.Text;
 using Microsoft.CodeAnalysis.VisualBasic;
 using RefactoringEssentials.Tests.CSharp.Diagnostics;
 using RefactoringEssentials.VB.Converter;
+using RefactoringEssentials.CSharp.Converter;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -60,7 +61,7 @@ namespace RefactoringEssentials.Tests.VB.Converter
 						"a.cs",
 						null,
 						SourceCodeKind.Regular,
-						TextLoader.From(TextAndVersion.Create(SourceText.From(text), VersionStamp.Create()))
+						text == null ? null: TextLoader.From(TextAndVersion.Create(SourceText.From(text), VersionStamp.Create()))
 					)
 				},
 				null,
@@ -70,7 +71,7 @@ namespace RefactoringEssentials.Tests.VB.Converter
 			doc = workspace.CurrentSolution.GetProject(projectId).GetDocument(documentId);
 		}
 
-		void VBWorkspaceSetup(out CSharpDiagnosticTestBase.TestWorkspace workspace, out Document doc, VisualBasicParseOptions parseOptions = null)
+		void VBWorkspaceSetup(string text, out CSharpDiagnosticTestBase.TestWorkspace workspace, out Document doc, VisualBasicParseOptions parseOptions = null)
 		{
 			workspace = new CSharpDiagnosticTestBase.TestWorkspace();
 			var projectId = ProjectId.CreateNewId();
@@ -102,7 +103,8 @@ namespace RefactoringEssentials.Tests.VB.Converter
 						documentId,
 						"a.vb",
 						null,
-						SourceCodeKind.Regular
+						SourceCodeKind.Regular,
+						text == null ? null: TextLoader.From(TextAndVersion.Create(SourceText.From(text), VersionStamp.Create()))
 					)
 				},
 				null,
@@ -117,8 +119,8 @@ namespace RefactoringEssentials.Tests.VB.Converter
 			DiagnosticTestBase.TestWorkspace csharpWorkspace, vbWorkspace;
 			Document inputDocument, outputDocument;
 			CSharpWorkspaceSetup(csharpCode, out csharpWorkspace, out inputDocument, csharpOptions);
-			VBWorkspaceSetup(out vbWorkspace, out outputDocument, vbOptions);
-            var outputNode = Convert((CSharpSyntaxNode)inputDocument.GetSyntaxRootAsync().Result, inputDocument.GetSemanticModelAsync().Result, outputDocument);
+			VBWorkspaceSetup(null, out vbWorkspace, out outputDocument, vbOptions);
+            var outputNode = ConvertToVisualBasic((CSharpSyntaxNode)inputDocument.GetSyntaxRootAsync().Result, inputDocument.GetSemanticModelAsync().Result, outputDocument);
 			
 			var txt = outputDocument.WithSyntaxRoot(Formatter.Format(outputNode, vbWorkspace)).GetTextAsync().Result.ToString();
 			txt = Utils.HomogenizeEol(txt).TrimEnd();
@@ -144,9 +146,46 @@ namespace RefactoringEssentials.Tests.VB.Converter
 			}
 		}
 
-        VisualBasicSyntaxNode Convert(CSharpSyntaxNode input, SemanticModel semanticModel, Document targetDocument)
+		public void TestConversionVisualBasicToCSharp(string visualBasicCode, string expectedCsharpCode, VisualBasicParseOptions vbOptions = null, CSharpParseOptions csharpOptions = null)
+		{
+			DiagnosticTestBase.TestWorkspace csharpWorkspace, vbWorkspace;
+			Document inputDocument, outputDocument;
+			VBWorkspaceSetup(visualBasicCode, out vbWorkspace, out inputDocument, vbOptions);
+			CSharpWorkspaceSetup(null, out csharpWorkspace, out outputDocument, csharpOptions);			
+			var outputNode = ConvertToCSharp((VisualBasicSyntaxNode)inputDocument.GetSyntaxRootAsync().Result, inputDocument.GetSemanticModelAsync().Result, outputDocument);
+
+			var txt = outputDocument.WithSyntaxRoot(Formatter.Format(outputNode, vbWorkspace)).GetTextAsync().Result.ToString();
+			txt = Utils.HomogenizeEol(txt).TrimEnd();
+			expectedCsharpCode = Utils.HomogenizeEol(expectedCsharpCode).TrimEnd();
+			if (expectedCsharpCode != txt)
+			{
+				Console.WriteLine("expected:");
+				Console.WriteLine(expectedCsharpCode);
+				Console.WriteLine("got:");
+				Console.WriteLine(txt);
+				Console.WriteLine("diff:");
+				int l = Math.Max(expectedCsharpCode.Length, txt.Length);
+				StringBuilder diff = new StringBuilder(l);
+				for (int i = 0; i < l; i++)
+				{
+					if (i >= expectedCsharpCode.Length || i >= txt.Length || expectedCsharpCode[i] != txt[i])
+						diff.Append('x');
+					else
+						diff.Append(expectedCsharpCode[i]);
+				}
+				Console.WriteLine(diff.ToString());
+				Assert.Fail();
+			}
+		}
+
+		VisualBasicSyntaxNode ConvertToVisualBasic(CSharpSyntaxNode input, SemanticModel semanticModel, Document targetDocument)
 		{
 			return CSharpConverter.Convert(input, semanticModel, targetDocument);
+		}
+
+		CSharpSyntaxNode ConvertToCSharp(VisualBasicSyntaxNode input, SemanticModel semanticModel, Document targetDocument)
+		{
+			return VisualBasicConverter.Convert(input, semanticModel, targetDocument);
 		}
 	}
 }
