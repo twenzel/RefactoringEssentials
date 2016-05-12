@@ -180,5 +180,59 @@ namespace RefactoringEssentials
                 return false;
             return cond1.SkipParens().IsEquivalentTo(cond2.SkipParens(), true);
         }
-    }
+
+		public static SyntaxKind GetExpressionOperatorTokenKind(SyntaxKind op)
+		{
+			switch (op)
+			{
+				case SyntaxKind.EqualsExpression:
+					return SyntaxKind.EqualsToken;
+				case SyntaxKind.NotEqualsExpression:
+					return SyntaxKind.ExclamationEqualsToken;
+				case SyntaxKind.GreaterThanExpression:
+					return SyntaxKind.GreaterThanToken;
+				case SyntaxKind.GreaterThanOrEqualExpression:
+					return SyntaxKind.GreaterThanEqualsToken;
+				case SyntaxKind.LessThanExpression:
+					return SyntaxKind.LessThanToken;
+				case SyntaxKind.LessThanOrEqualExpression:
+					return SyntaxKind.LessThanEqualsToken;
+				case SyntaxKind.BitwiseOrExpression:
+					return SyntaxKind.BarToken;
+				case SyntaxKind.LogicalOrExpression:
+					return SyntaxKind.BarBarToken;
+				case SyntaxKind.BitwiseAndExpression:
+					return SyntaxKind.AmpersandToken;
+				case SyntaxKind.LogicalAndExpression:
+					return SyntaxKind.AmpersandAmpersandToken;
+				case SyntaxKind.AddExpression:
+					return SyntaxKind.PlusToken;
+				case SyntaxKind.AmpersandToken:
+					return SyntaxKind.PlusToken;
+				case SyntaxKind.SubtractExpression:
+					return SyntaxKind.MinusToken;
+				case SyntaxKind.MultiplyExpression:
+					return SyntaxKind.AsteriskToken;
+				case SyntaxKind.DivideExpression:
+					return SyntaxKind.SlashToken;
+				case SyntaxKind.ModuloExpression:
+					return SyntaxKind.ModuleKeyword;
+				// assignments
+				case SyntaxKind.SimpleAssignmentExpression:
+					return SyntaxKind.EqualsToken;
+				case SyntaxKind.AddAssignmentExpression:
+					return SyntaxKind.PlusEqualsToken;
+				case SyntaxKind.SubtractAssignmentExpression:
+					return SyntaxKind.MinusEqualsToken;
+				// unary
+				case SyntaxKind.UnaryPlusExpression:
+					return SyntaxKind.PlusToken;
+				case SyntaxKind.UnaryMinusExpression:
+					return SyntaxKind.MinusToken;
+				case SyntaxKind.LogicalNotExpression:
+					return SyntaxKind.ExclamationToken;
+			}
+			throw new ArgumentOutOfRangeException(nameof(op));
+		}
+	}
 }

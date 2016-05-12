@@ -261,6 +261,8 @@ namespace RefactoringEssentials.CSharp.Converter
 				//	return SyntaxKind.PlusToken;
 				//case CS.SyntaxKind.MinusMinusToken:
 				//	return SyntaxKind.MinusToken;
+				case CVB.SyntaxKind.ByValKeyword:
+					return SyntaxKind.None;
 				case CVB.SyntaxKind.DimKeyword:
 					return SyntaxKind.None;
 			}

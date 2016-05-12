@@ -46,6 +46,18 @@ namespace RefactoringEssentials.CSharp.Converter
 				);
 			}
 
+			#region Attributes
+			public override CSharpSyntaxNode VisitAttributeList(CVBS.AttributeListSyntax node)
+			{
+				return SyntaxFactory.AttributeList(SyntaxFactory.SeparatedList(node.Attributes.Select(a => (AttributeSyntax)a.Accept(this))));
+			}
+
+			public override CSharpSyntaxNode VisitAttribute(CVBS.AttributeSyntax node)
+			{				
+				return SyntaxFactory.Attribute((NameSyntax)node.Name.Accept(this), (AttributeArgumentListSyntax)node.ArgumentList?.Accept(this));
+			}
+			#endregion
+
 			#region Namespace Members
 			public override CSharpSyntaxNode VisitClassBlock(CVBS.ClassBlockSyntax node)
 			{
@@ -106,6 +118,119 @@ namespace RefactoringEssentials.CSharp.Converter
 					RemodelVariableDeclaration(node.Declarators[0], this)
 				);
 			}
+
+			public override CSharpSyntaxNode VisitMethodBlock(CVBS.MethodBlockSyntax node)
+			{
+				BlockSyntax body = null;
+				var visitor = new MethodBodyVisitor(semanticModel, this);
+				if (node.BlockStatement != null)
+				{
+					var statements = node.Statements.SelectMany(s => s.Accept(visitor));
+
+					body = SyntaxFactory.Block(statements);
+				}
+
+				//if (node.ExpressionBody != null)
+				//{
+				//	block = SyntaxFactory.SingletonList<StatementSyntax>(
+				//		SyntaxFactory.ReturnStatement((ExpressionSyntax)node.ExpressionBody.Expression.Accept(this))
+				//	);
+				//}
+
+				//if (node.SubOrFunctionStatement.Modifiers.Any(m => m.IsKind(CVB.SyntaxKind.ExternKeyword)))
+				//{
+				//	block = SyntaxFactory.List<StatementSyntax>();
+				//}
+				var id = ConvertIdentifier(node.SubOrFunctionStatement.Identifier);
+				var methodInfo = semanticModel.GetDeclaredSymbol(node);
+				var containingType = methodInfo?.ContainingType;
+				var attributes = SyntaxFactory.List(node.BlockStatement.AttributeLists.Select(a => (AttributeListSyntax)a.Accept(this)));
+				var parameterList = (ParameterListSyntax)node.BlockStatement.ParameterList?.Accept(this);
+				var modifiers = ConvertModifiers(node.BlockStatement.Modifiers, containingType?.IsInterfaceType() == true ? TokenContext.Local : TokenContext.Member);
+				var contstraintClauses = node.SubOrFunctionStatement.TypeParameterList.Parameters.Select(p => (TypeParameterConstraintClauseSyntax)p.TypeParameterConstraintClause?.Accept(this));
+				contstraintClauses = contstraintClauses.WhereNotNull();
+
+				// extension method?
+				//var extensionAttribute = attributes.FirstOrDefault(a => a.)
+				//if (node.BlockStatement.ParameterList.Parameters.Count > 0 && node.BlockStatement.ParameterList.Parameters[0].Modifiers.Any(CS.SyntaxKind.ThisKeyword))
+				//{
+				//	attributes = attributes.Insert(0, SyntaxFactory.AttributeList(SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Attribute(null, SyntaxFactory.ParseTypeName("Extension"), SyntaxFactory.ArgumentList()))));
+				//	if (!((CS.CSharpSyntaxTree)node.SyntaxTree).HasUsingDirective("System.Runtime.CompilerServices"))
+				//		allImports.Add(SyntaxFactory.ImportsStatement(SyntaxFactory.SingletonSeparatedList<ImportsClauseSyntax>(SyntaxFactory.SimpleImportsClause(SyntaxFactory.ParseName("System.Runtime.CompilerServices")))));
+				//}
+
+				//if (containingType?.IsStatic == true)
+				//{
+				//	modifiers = SyntaxFactory.TokenList(modifiers.Where(t => !(t.IsKind(SyntaxKind.SharedKeyword, SyntaxKind.PublicKeyword))));
+				//}
+				TypeSyntax returnType = SyntaxFactory.ParseTypeName("void");
+
+				//if (node.SubOrFunctionStatement )
+				//	returnType = 
+
+				return SyntaxFactory.MethodDeclaration(attributes,
+					modifiers,
+					returnType,
+					null,
+					id,
+					(TypeParameterListSyntax)node.SubOrFunctionStatement.TypeParameterList?.Accept(this),
+					parameterList,
+					SyntaxFactory.List(contstraintClauses),
+					body, null);				
+			}
+
+			public override CSharpSyntaxNode VisitMethodStatement(CVBS.MethodStatementSyntax node)
+			{
+				return base.VisitMethodStatement(node);
+			}
+
+			public override CSharpSyntaxNode VisitParameterList(CVBS.ParameterListSyntax node)
+			{
+				return SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(node.Parameters.Select(p => (ParameterSyntax)p.Accept(this))));
+			}
+
+			public override CSharpSyntaxNode VisitParameter(CVBS.ParameterSyntax node)
+			{
+				var id = ConvertIdentifier(node.Identifier.Identifier);
+				var returnType = (TypeSyntax)node.AsClause?.Accept(this);
+				EqualsValueClauseSyntax @default = null;
+				if (node.Default != null)
+				{
+					@default = SyntaxFactory.EqualsValueClause((ExpressionSyntax)node.Default?.Value.Accept(this));
+				}
+
+				List<AttributeListSyntax> newAttributes = node.AttributeLists.Select(a => (AttributeListSyntax)a.Accept(this)).ToList();
+
+				var modifiers = ConvertModifiers(node.Modifiers, TokenContext.Local);
+
+				if (node.Modifiers.Any(CVB.SyntaxKind.ByRefKeyword))
+				{
+					var outAttribute = newAttributes.FirstOrDefault(al => al.Attributes.Any(a => a.Name.ToString() == "Out"));
+
+					if (outAttribute != null)
+					{
+						newAttributes.Remove(outAttribute);
+						modifiers = modifiers.Remove(modifiers.First(m => m.Text == "ref"));
+						modifiers = modifiers.Add(SyntaxFactory.Token(SyntaxKind.OutKeyword));
+					}
+					//newAttributes = new[] {
+					//	SyntaxFactory.AttributeList(
+					//		SyntaxFactory.SingletonSeparatedList(
+					//			SyntaxFactory.Attribute(SyntaxFactory.ParseName("ref"))
+					//		)
+					//	)
+					//};
+				}
+			
+
+				return SyntaxFactory.Parameter(
+					SyntaxFactory.List(newAttributes),
+					modifiers,
+					returnType,
+					id,
+					@default
+				);
+			}
 			#endregion
 
 			#region Type / Modifiers
@@ -122,6 +247,54 @@ namespace RefactoringEssentials.CSharp.Converter
 			public override CSharpSyntaxNode VisitOmittedArgument(CVBS.OmittedArgumentSyntax node)
 			{
 				return SyntaxFactory.ParseTypeName("");
+			}
+
+			public override CSharpSyntaxNode VisitSimpleAsClause(CVBS.SimpleAsClauseSyntax node)
+			{
+				return node.Type.Accept(this);
+			}
+
+			public override CSharpSyntaxNode VisitTypeParameterList(CVBS.TypeParameterListSyntax node)
+			{
+				return SyntaxFactory.TypeParameterList(SyntaxFactory.SeparatedList(node.Parameters.Select(p => (TypeParameterSyntax)p.Accept(this))));
+			}
+
+			public override CSharpSyntaxNode VisitTypeParameter(CVBS.TypeParameterSyntax node)
+			{
+				SyntaxToken variance = default(SyntaxToken);
+				var attributes = SyntaxFactory.List<AttributeListSyntax>();
+				if (!node.VarianceKeyword.IsKind(CVB.SyntaxKind.None))
+				{
+					variance = SyntaxFactory.Token(node.VarianceKeyword.IsKind(CVB.SyntaxKind.InKeyword) ? SyntaxKind.InKeyword : SyntaxKind.OutKeyword);
+				}
+				
+				return SyntaxFactory.TypeParameter(attributes, variance, ConvertIdentifier(node.Identifier));
+			}
+
+			public override CSharpSyntaxNode VisitTypeParameterSingleConstraintClause(CVBS.TypeParameterSingleConstraintClauseSyntax node)
+			{
+				var typeParameter = node.Parent as CVBS.TypeParameterSyntax;
+
+				return SyntaxFactory.TypeParameterConstraintClause(SyntaxFactory.IdentifierName(ConvertIdentifier(typeParameter.Identifier)), SyntaxFactory.SeparatedList(new[] { (TypeParameterConstraintSyntax)node.Constraint.Accept(this) }));
+			}
+
+			public override CSharpSyntaxNode VisitTypeParameterMultipleConstraintClause(CVBS.TypeParameterMultipleConstraintClauseSyntax node)
+			{
+				var typeParameter = node.Parent as CVBS.TypeParameterSyntax;
+
+				return SyntaxFactory.TypeParameterConstraintClause(SyntaxFactory.IdentifierName(ConvertIdentifier(typeParameter.Identifier)), SyntaxFactory.SeparatedList(node.Constraints.Select(c => (TypeParameterConstraintSyntax)c.Accept(this))));				
+			}
+
+			public override CSharpSyntaxNode VisitSpecialConstraint(CVBS.SpecialConstraintSyntax node)
+			{
+				if (node.IsKind(CVB.SyntaxKind.ClassConstraint))
+					return SyntaxFactory.ClassOrStructConstraint(SyntaxKind.ClassConstraint, SyntaxFactory.Token(SyntaxKind.ClassKeyword));					
+				if (node.IsKind(CVB.SyntaxKind.StructureConstraint))
+					return SyntaxFactory.ClassOrStructConstraint(SyntaxKind.StructConstraint, SyntaxFactory.Token(SyntaxKind.StructKeyword));
+				if (node.IsKind(CVB.SyntaxKind.NewConstraint))
+					return SyntaxFactory.ConstructorConstraint();
+
+				throw new NotSupportedException(String.Format("Constraint {0} is not supported!", node.Kind()));
 			}
 			#endregion
 
@@ -191,6 +364,21 @@ namespace RefactoringEssentials.CSharp.Converter
 				}
 				else
 				{
+					// support for val = default(T3) instead of "val = null"
+					//if (node.IsKind(CVB.SyntaxKind.NothingLiteralExpression))
+					//{
+					//	var assignment = node.Parent as CVBS.AssignmentStatementSyntax;
+
+					//	if (assignment != null)
+					//	{
+					//		// get type of variable
+					//		var info = semanticModel.GetSymbolInfo(assignment.Left);
+					//		var type = (info.Symbol as Microsoft.CodeAnalysis.VisualBasic.Symbols.SourceParameterSymbol)?.Type
+
+
+					//	}
+					//}
+
 					return Literal(node.Token.Value);
 				}
 			}
@@ -208,7 +396,77 @@ namespace RefactoringEssentials.CSharp.Converter
 			public override CSharpSyntaxNode VisitArgumentList(CVBS.ArgumentListSyntax node)
 			{
 				return SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(node.Arguments.Select(a => (ArgumentSyntax)a.Accept(this))));
-			}					
+			}
+
+			public override CSharpSyntaxNode VisitAssignmentStatement(CVBS.AssignmentStatementSyntax node)
+			{
+				return MakeAssignmentStatement(node);
+				//if (node.Parent is CVBS.ExpressionStatementSyntax)
+				//{
+				//	if (semanticModel.GetTypeInfo(node.Right).ConvertedType.IsDelegateType())
+				//	{
+				//		if (node.OperatorToken.IsKind(CVB.SyntaxKind.PlusEqualsToken))
+				//		{
+				//			return SyntaxFactory.AddHandlerStatement((ExpressionSyntax)node.Left.Accept(this), (ExpressionSyntax)node.Right.Accept(this));
+				//		}
+				//		if (node.OperatorToken.IsKind(CVB.SyntaxKind.MinusEqualsToken))
+				//		{
+				//			return SyntaxFactory.RemoveHandlerStatement((ExpressionSyntax)node.Left.Accept(this), (ExpressionSyntax)node.Right.Accept(this));
+				//		}
+				//	}
+				//	return MakeAssignmentStatement(node);
+				//}
+
+				//if (node.Parent is CVBS.ForStatementSyntax)
+				//{
+				//	return MakeAssignmentStatement(node);
+				//}
+
+				//if (node.Parent is CVBS.InitializerExpressionSyntax)
+				//{
+				//	if (node.Left is CVBS.ImplicitElementAccessSyntax)
+				//	{
+				//		return SyntaxFactory.CollectionInitializer(
+				//			SyntaxFactory.SeparatedList(new[] {
+				//				(ExpressionSyntax)node.Left.Accept(this),
+				//				(ExpressionSyntax)node.Right.Accept(this)
+				//			})
+				//		);
+				//	}
+				//	else
+				//	{
+				//		return SyntaxFactory.NamedFieldInitializer(
+				//			(IdentifierNameSyntax)node.Left.Accept(this),
+				//			(ExpressionSyntax)node.Right.Accept(this)
+				//		);
+				//	}
+				//}
+
+				//MarkPatchInlineAssignHelper(node);
+				//return SyntaxFactory.InvocationExpression(
+				//	SyntaxFactory.IdentifierName("__InlineAssignHelper"),
+				//	SyntaxFactory.ArgumentList(
+				//		SyntaxFactory.SeparatedList(
+				//			new ArgumentSyntax[] {
+				//				SyntaxFactory.SimpleArgument((ExpressionSyntax)node.Left.Accept(this)),
+				//				SyntaxFactory.SimpleArgument((ExpressionSyntax)node.Right.Accept(this))
+				//			}
+				//		)
+				//	)
+				//);				
+			}
+
+			AssignmentExpressionSyntax MakeAssignmentStatement(CVBS.AssignmentStatementSyntax node)
+			{
+				var kind = ConvertToken(CVB.VisualBasicExtensions.Kind(node)); //TokenContext.Local
+				
+				return SyntaxFactory.AssignmentExpression(
+					kind,
+					(ExpressionSyntax)node.Left.Accept(this),
+					SyntaxFactory.Token(CSharpUtil.GetExpressionOperatorTokenKind(kind)),
+					(ExpressionSyntax)node.Right.Accept(this)
+				);
+			}
 			#endregion
 		}
 	}
