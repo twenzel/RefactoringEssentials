@@ -56,6 +56,25 @@ End Class", @"class TestClass
 }");
 		}
 
+		[Test]
+		public void TestMethod2()
+		{
+			TestConversionVisualBasicToCSharp(
+				@"Class TestClass
+	implements ITestService
+
+    Public Function TestMethod(ByVal argument3 As Int32) as boolean Implements ITestService.TestMethod
+        Return (argument3 <> 22 AndAlso argument3 < 3) OrElse argument3 = 2
+    End Sub
+End Class", @"class TestClass : ITestService
+{
+    public bool TestMethod(int argument3)       
+    {
+       Return (argument3 != 22 && argument3 < 3) || argument3 == 2;
+    }
+}");
+		}
+
 		// Mulitple variable declaration
 		// TODO: Module convert, Namespace, attribute on class, attribute in file
 		// Generic classes, with constraints
@@ -66,7 +85,6 @@ End Class", @"class TestClass
 		// TODO: method parameters with default value
 		// TODO: methods implementing an interface
 		// TODO methods mit expression bodies
-		// TODO: Generic methods with constraints
 		// TODO: methods with attributes
 	}
 }

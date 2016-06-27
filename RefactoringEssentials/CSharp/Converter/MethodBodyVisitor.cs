@@ -66,6 +66,16 @@ namespace RefactoringEssentials.CSharp.Converter
 				var statement = SyntaxFactory.ExpressionStatement((ExpressionSyntax)node.Accept(nodesVisitor));
 				return SyntaxFactory.SingletonList((StatementSyntax)statement);
 			}
+
+			public override SyntaxList<StatementSyntax> VisitReturnStatement(CVBS.ReturnStatementSyntax node)
+			{
+				StatementSyntax stmt;
+				if (node.Expression == null)
+					stmt = SyntaxFactory.ReturnStatement();
+				else
+					stmt = SyntaxFactory.ReturnStatement((ExpressionSyntax)node.Expression.Accept(nodesVisitor));
+				return SyntaxFactory.SingletonList(stmt);
+			}
 		}
 	}
 }

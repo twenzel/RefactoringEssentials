@@ -467,6 +467,84 @@ namespace RefactoringEssentials.CSharp.Converter
 					(ExpressionSyntax)node.Right.Accept(this)
 				);
 			}
+
+			public override CSharpSyntaxNode VisitMeExpression(CVBS.MeExpressionSyntax node)
+			{
+				return SyntaxFactory.ThisExpression();
+			}
+
+			public override CSharpSyntaxNode VisitMyBaseExpression(CVBS.MyBaseExpressionSyntax node)
+			{
+				return SyntaxFactory.BaseExpression();
+			}
+
+			public override CSharpSyntaxNode VisitBinaryExpression(CVBS.BinaryExpressionSyntax node)
+			{
+			
+				if (node.IsKind(CVB.SyntaxKind.BinaryConditionalExpression))
+				{
+					return SyntaxFactory.BinaryExpression(SyntaxKind.ConditionalExpression, 
+						(ExpressionSyntax)node.Left.Accept(this),
+						 (ExpressionSyntax)node.Right.Accept(this)
+					);
+				}
+				if (node.IsKind(CVB.SyntaxKind.TryCastExpression))
+				{
+					return SyntaxFactory.CastExpression((TypeSyntax)node.Right.Accept(this), ((ExpressionSyntax)node.Left.Accept(this));
+				}
+				if (node.IsKind(CVB.SyntaxKind.IsExpression))
+				{
+					return SyntaxFactory.TypeOfIsExpression((ExpressionSyntax)node.Left.Accept(this), (TypeSyntax)node.Right.Accept(this));
+				}
+
+				if (node.OperatorToken.IsKind(CVB.SyntaxKind.IsExpression))
+				{
+					ExpressionSyntax otherArgument = null;
+					if (node.Left.IsKind(CVB.SyntaxKind.NothingLiteralExpression))
+					{
+						otherArgument = (ExpressionSyntax)node.Right.Accept(this);
+					}
+					if (node.Right.IsKind(CVB.SyntaxKind.NothingLiteralExpression))
+					{
+						otherArgument = (ExpressionSyntax)node.Left.Accept(this);
+					}
+					if (otherArgument != null)
+					{
+						return SyntaxFactory.BinaryExpression(SyntaxKind.EqualsExpression, otherArgument, Literal(null));
+					}
+				}
+
+				if (node.OperatorToken.IsKind(CVB.SyntaxKind.IsNotExpression))
+				{
+					ExpressionSyntax otherArgument = null;
+					if (node.Left.IsKind(CVB.SyntaxKind.NothingLiteralExpression))
+					{
+						otherArgument = (ExpressionSyntax)node.Right.Accept(this);
+					}
+
+					if (node.Right.IsKind(CVB.SyntaxKind.NothingLiteralExpression))
+					{
+						otherArgument = (ExpressionSyntax)node.Left.Accept(this);
+					}
+
+					if (otherArgument != null)
+					{
+						return SyntaxFactory.BinaryExpression(SyntaxKind.NotEqualsExpression, otherArgument, Literal(null));
+					}
+				}
+				var kind = ConvertToken(CVB.VisualBasicExtensions.Kind(node)); //TokenContext.Local
+				//if (node.IsKind(CVB.SyntaxKind.AddExpression) && (semanticModel.GetTypeInfo(node.Left).ConvertedType?.SpecialType == SpecialType.System_String
+				//	|| semanticModel.GetTypeInfo(node.Right).ConvertedType?.SpecialType == SpecialType.System_String))
+				//{
+				//	kind = SyntaxKind.ConcatenateExpression;
+				//}
+				return SyntaxFactory.BinaryExpression(
+					kind,
+					(ExpressionSyntax)node.Left.Accept(this),
+					SyntaxFactory.Token(CSharpUtil.GetExpressionOperatorTokenKind(kind)),
+					(ExpressionSyntax)node.Right.Accept(this)
+				);
+			}
 			#endregion
 		}
 	}
